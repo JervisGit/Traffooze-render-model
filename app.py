@@ -34,6 +34,9 @@ def predict():
         road_category_D, road_category_E, road_category_F
     ]])
 
+    # Convert the prediction ndarray to a list
+    prediction = prediction.tolist()
+
     response = {
         'prediction': prediction
     }
