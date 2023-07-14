@@ -46,10 +46,21 @@ def predict():
 
     return jsonify(response)
 
+@app.route('/verify', methods=['POST'])
+def verify():
+
+    metadata_df = pd.read_csv('roads_metadata.csv')
+    
+    if metadata_df:
+        return 200
+    else:
+        return 404
+
+
 @app.route('/predict/layer', methods=['POST'])
 def process():
 
-    metadata_df = pd.read_csv('../roads_metadata.csv')
+    metadata_df = pd.read_csv('roads_metadata.csv')
     metadata_df = metadata_df[["road_id", "length"]]
     timestamp = pd.to_datetime("12/07/2023 16:00")
 
@@ -93,7 +104,7 @@ def process():
         'jamFactor_prediction': predictions[:, 3]  # Assuming jamFactor is the fourth target variable
     })
 
-    metadata_df = pd.read_csv('../roads_metadata.csv')
+    metadata_df = pd.read_csv('roads_metadata.csv')
     metadata_df = metadata_df.drop('length', axis=1)
 
     merged_df = pd.merge(result_df, metadata_df, on='road_id', how='left')
