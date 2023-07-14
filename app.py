@@ -46,7 +46,7 @@ def predict():
 
     return jsonify(response)
 
-@app.route('/verify', methods=['POST'])
+@app.route('/verify', methods=['GET'])
 def verify():
 
     metadata_df = pd.read_csv('roads_metadata.csv')
@@ -57,7 +57,7 @@ def verify():
         return 404
 
 
-@app.route('/predict/layer', methods=['POST'])
+@app.route('/predict/layer', methods=['GET'])
 def process():
 
     metadata_df = pd.read_csv('roads_metadata.csv')
