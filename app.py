@@ -1,7 +1,7 @@
 from flask import Flask, jsonify, request
 import pandas as pd
 import joblib
-import sklearn
+#import sklearn
 
 app = Flask(__name__)
 my_model = joblib.load(r'rf_model.sav')
@@ -51,8 +51,8 @@ def verify():
 
     metadata_df = pd.read_csv('roads_metadata.csv')
     
-    if metadata_df:
-        return 200
+    if not metadata_df.empty:
+        return "df has values"
     else:
         return 404
 
@@ -62,7 +62,7 @@ def process():
 
     metadata_df = pd.read_csv('roads_metadata.csv')
     metadata_df = metadata_df[["road_id", "length"]]
-    timestamp = pd.to_datetime("12/07/2023 16:00")
+    timestamp = pd.to_datetime("12/07/2023 16:00")#.to_pydatetime() 
 
     prediction_list = []
 
@@ -79,7 +79,7 @@ def process():
             'Hour': timestamp.hour,
             'Minute': timestamp.minute,
             'dayofweek': timestamp.dayofweek,
-            'weekofyear': timestamp.isocalendar().week
+            'weekofyear': timestamp.isocalendar().week #isocalender()[1]
         }
         
         prediction_list.append(prediction_dict)
