@@ -79,7 +79,7 @@ def process():
             'Hour': timestamp.hour,
             'Minute': timestamp.minute,
             'dayofweek': timestamp.dayofweek,
-            'weekofyear': timestamp.isocalendar().week #isocalender()[1]
+            'weekofyear': int(timestamp.strftime("%V")) #timestamp.isocalendar().week #isocalender()[1]
         }
         
         prediction_list.append(prediction_dict)
