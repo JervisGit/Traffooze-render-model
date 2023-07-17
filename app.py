@@ -2,8 +2,11 @@ from flask import Flask, jsonify, request
 import pandas as pd
 import joblib
 #import sklearn
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
+
 my_model = joblib.load(r'rf_model.sav')
 
 rf = joblib.load(r'rf_regressor.sav')
