@@ -107,6 +107,11 @@ def process():
         'jamFactor_prediction': predictions[:, 3]  # Assuming jamFactor is the fourth target variable
     })
 
+    result_df["speed_prediction"] = result_df["speed_prediction"].round(1)
+    result_df["speedUncapped_prediction"] = result_df["speedUncapped_prediction"].round(1)
+    result_df["freeFlow_prediction"] = result_df["freeFlow_prediction"].round(1)
+    result_df["jamFactor_prediction"] = result_df["jamFactor_prediction"].round(1)
+
     metadata_df = pd.read_csv('roads_metadata.csv')
     metadata_df = metadata_df.drop('length', axis=1)
 
