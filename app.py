@@ -161,7 +161,7 @@ def save_trafficjam():
         date = row["Date"]
         time = row["Time"]
         message = row['Message']
-        location = row["Latitude"] + row["Longitude"]
+        location = str(row["Latitude"]) + "," + str(row["Longitude"])
 
         traffic_jam = {}
 
@@ -200,6 +200,144 @@ def get_trafficjam():
     client.close()
 
     return jsonify(traffic_jams)
+
+@app.route('/save_roadclosure', methods=['GET'])
+def save_roadclosure():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_roadclosure']
+
+    headers = { 'AccountKey' : apikey,
+             'accept' : 'application/json'}
+
+    response = requests.get('http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents', headers=headers)
+    data = response.json()["value"]
+    df = pd.DataFrame(data)
+    df[['Date', 'Time']] = df['Message'].str.extract(r'\((.*?)\)(.*?) ')
+
+    df['Message'] = df['Message'].str.replace(r'\(\d+/\d+\)\d+:\d+ ', '', regex=True)
+
+    current_year = pd.Timestamp.now().year
+    df['Date'] = df['Date'] + '/' + str(current_year)
+
+    closures = df.loc[df['Type'] == "Road Block"]
+
+    road_closures = []
+
+    for index, row in closures.iterrows():
+        date = row["Date"]
+        time = row["Time"]
+        message = row['Message']
+        location = str(row["Latitude"]) + "," + str(row["Longitude"])
+
+        road_closure = {}
+
+        road_closure["date"] = date
+        road_closure["time"] = time
+        road_closure["message"] = message
+        road_closure["location"] = location
+
+        road_closures.append(road_closure)   
+
+    result = collection.insert_many(road_closures)
+
+    if result.inserted_ids:
+        client.close()
+        return "Road closures saved successfully."
+    else:
+        client.close()
+        return "Failed to insert Road closures."
+    
+@app.route('/roadclosure', methods=['GET'])
+def get_roadclosure():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_roadclosure']
+
+    cursor = collection.find()
+
+    road_closures = []
+
+    for document in cursor:
+        document["_id"] = str(document["_id"])
+        road_closures.append(document)
+
+    client.close()
+
+    return jsonify(road_closures)
+
+@app.route('/save_roadaccident', methods=['GET'])
+def save_roadaccident():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_roadaccident']
+
+    headers = { 'AccountKey' : apikey,
+             'accept' : 'application/json'}
+
+    response = requests.get('http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents', headers=headers)
+    data = response.json()["value"]
+    df = pd.DataFrame(data)
+    df[['Date', 'Time']] = df['Message'].str.extract(r'\((.*?)\)(.*?) ')
+
+    df['Message'] = df['Message'].str.replace(r'\(\d+/\d+\)\d+:\d+ ', '', regex=True)
+
+    current_year = pd.Timestamp.now().year
+    df['Date'] = df['Date'] + '/' + str(current_year)
+
+    accidents = df.loc[df['Type'] == "Accident"]
+
+    road_accidents = []
+
+    for index, row in accidents.iterrows():
+        date = row["Date"]
+        time = row["Time"]
+        message = row['Message']
+        location = str(row["Latitude"]) + "," + str(row["Longitude"])
+
+        road_accident = {}
+
+        road_accident["date"] = date
+        road_accident["time"] = time
+        road_accident["message"] = message
+        road_accident["location"] = location
+
+        road_accidents.append(road_accident)   
+
+    result = collection.insert_many(road_accidents)
+
+    if result.inserted_ids:
+        client.close()
+        return "Road accidents saved successfully."
+    else:
+        client.close()
+        return "Failed to insert Road accidents."
+    
+@app.route('/roadaccident', methods=['GET'])
+def get_roadaccident():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_roadaccident']
+
+    cursor = collection.find()
+
+    road_accidents = []
+
+    for document in cursor:
+        document["_id"] = str(document["_id"])
+        road_accidents.append(document)
+
+    client.close()
+
+    return jsonify(road_accidents)
 
 if __name__ == '__main__':
     app.run(port=3000, debug=True)
