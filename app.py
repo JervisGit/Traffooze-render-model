@@ -1,11 +1,19 @@
 from flask import Flask, jsonify, request
+import os
 import pandas as pd
 import joblib
 #import sklearn
 from flask_cors import CORS
+import datetime
+import requests
+import json
+import pymongo
 
 app = Flask(__name__)
 CORS(app)
+
+mongo_uri = os.environ.get('mongoDB')
+apikey = os.environ.get('apiKey')
 
 my_model = joblib.load(r'rf_model.sav')
 
@@ -122,6 +130,75 @@ def process():
     results = merged_df.to_dict("records")
 
     return jsonify(results)
+
+
+@app.route('/save_trafficjam', methods=['GET'])
+def save_trafficjam():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_trafficjam']
+
+    headers = { 'AccountKey' : apikey,
+             'accept' : 'application/json'}
+
+    response = requests.get('http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents', headers=headers)
+    data = response.json()["value"]
+    df = pd.DataFrame(data)
+    df[['Date', 'Time']] = df['Message'].str.extract(r'\((.*?)\)(.*?) ')
+
+    df['Message'] = df['Message'].str.replace(r'\(\d+/\d+\)\d+:\d+ ', '', regex=True)
+
+    current_year = pd.Timestamp.now().year
+    df['Date'] = df['Date'] + '/' + str(current_year)
+
+    jam = df.loc[df['Type'] == "Heavy Traffic"]
+
+    traffic_jams = []
+
+    for index, row in jam.iterrows():
+        date = row["Date"]
+        time = row["Time"]
+        message = row['Message']
+        location = row["Latitude"] + row["Longitude"]
+
+        traffic_jam = {}
+
+        traffic_jam["date"] = date
+        traffic_jam["time"] = time
+        traffic_jam["message"] = message
+        traffic_jam["location"] = location
+
+        traffic_jams.append(traffic_jam)   
+
+    result = collection.insert_many(traffic_jams)
+
+    if result.inserted_ids:
+        client.close()
+        return 200
+    else:
+        client.close()
+        return 404
+    
+@app.route('/trafficjam', methods=['GET'])
+def get_trafficjam():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_trafficjam']
+
+    cursor = collection.find()
+
+    traffic_jams = []
+
+    for document in cursor:
+        traffic_jams.append(document)
+
+    client.close()
+
+    return jsonify(traffic_jams)
 
 if __name__ == '__main__':
     app.run(port=3000, debug=True)
