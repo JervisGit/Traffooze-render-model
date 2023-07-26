@@ -176,10 +176,10 @@ def save_trafficjam():
 
     if result.inserted_ids:
         client.close()
-        return 200
+        return "Traffic jams saved successfully."
     else:
         client.close()
-        return 404
+        return "Failed to insert traffic jams."
     
 @app.route('/trafficjam', methods=['GET'])
 def get_trafficjam():
@@ -194,6 +194,7 @@ def get_trafficjam():
     traffic_jams = []
 
     for document in cursor:
+        document["_id"] = str(document["_id"])
         traffic_jams.append(document)
 
     client.close()
