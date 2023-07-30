@@ -8,6 +8,7 @@ import datetime
 import requests
 import json
 import pymongo
+from geopy.geocoders import Nominatim
 
 app = Flask(__name__)
 CORS(app)
@@ -157,11 +158,18 @@ def save_trafficjam():
 
     traffic_jams = []
 
+    geolocator = Nominatim(user_agent="myGeocoder")
+
     for index, row in jam.iterrows():
         date = row["Date"]
         time = row["Time"]
         message = row['Message']
         location = str(row["Latitude"]) + "," + str(row["Longitude"])
+        try:
+            location_info = geolocator.reverse(location, exactly_one=True)
+            address = location_info.address
+        except Exception as e:
+            address = None
 
         traffic_jam = {}
 
@@ -169,6 +177,7 @@ def save_trafficjam():
         traffic_jam["time"] = time
         traffic_jam["message"] = message
         traffic_jam["location"] = location
+        traffic_jam["address"] = address
 
         traffic_jams.append(traffic_jam)   
 
@@ -179,7 +188,7 @@ def save_trafficjam():
         return "Traffic jams saved successfully."
     else:
         client.close()
-        return "Failed to insert traffic jams."
+        return "No traffic jams to insert."
     
 @app.route('/trafficjam', methods=['GET'])
 def get_trafficjam():
@@ -226,11 +235,18 @@ def save_roadclosure():
 
     road_closures = []
 
+    geolocator = Nominatim(user_agent="myGeocoder")
+
     for index, row in closures.iterrows():
         date = row["Date"]
         time = row["Time"]
         message = row['Message']
         location = str(row["Latitude"]) + "," + str(row["Longitude"])
+        try:
+            location_info = geolocator.reverse(location, exactly_one=True)
+            address = location_info.address
+        except Exception as e:
+            address = None
 
         road_closure = {}
 
@@ -238,6 +254,7 @@ def save_roadclosure():
         road_closure["time"] = time
         road_closure["message"] = message
         road_closure["location"] = location
+        road_closure["address"] = address
 
         road_closures.append(road_closure)   
 
@@ -248,7 +265,7 @@ def save_roadclosure():
         return "Road closures saved successfully."
     else:
         client.close()
-        return "Failed to insert Road closures."
+        return "No Road closures to insert."
     
 @app.route('/roadclosure', methods=['GET'])
 def get_roadclosure():
@@ -295,11 +312,18 @@ def save_roadaccident():
 
     road_accidents = []
 
+    geolocator = Nominatim(user_agent="myGeocoder")
+
     for index, row in accidents.iterrows():
         date = row["Date"]
         time = row["Time"]
         message = row['Message']
         location = str(row["Latitude"]) + "," + str(row["Longitude"])
+        try:
+            location_info = geolocator.reverse(location, exactly_one=True)
+            address = location_info.address
+        except Exception as e:
+            address = None
 
         road_accident = {}
 
@@ -307,6 +331,7 @@ def save_roadaccident():
         road_accident["time"] = time
         road_accident["message"] = message
         road_accident["location"] = location
+        road_accident["address"] = address
 
         road_accidents.append(road_accident)   
 
@@ -317,7 +342,7 @@ def save_roadaccident():
         return "Road accidents saved successfully."
     else:
         client.close()
-        return "Failed to insert Road accidents."
+        return "No road accidents to insert."
     
 @app.route('/roadaccident', methods=['GET'])
 def get_roadaccident():
