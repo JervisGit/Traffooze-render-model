@@ -9,12 +9,15 @@ import requests
 import json
 import pymongo
 from geopy.geocoders import Nominatim
+from geopy.distance import geodesic
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 CORS(app)
 
 mongo_uri = os.environ.get('mongoDB')
 apikey = os.environ.get('apiKey')
+weather_apikey = os.environ.get('openweather')
 
 my_model = joblib.load(r'rf_model.sav')
 
@@ -129,6 +132,118 @@ def process():
     merged_df.drop(["road_id", "Year", "Month", "Day", "Hour", "Minute", "dayofweek", "weekofyear"], axis=1, inplace=True)
 
     results = merged_df.to_dict("records")
+
+    return jsonify(results)
+
+@app.route('/generate_predictions', methods=['GET'])
+def process():
+
+    client = pymongo.MongoClient(mongo_uri)
+    db = client['TraffoozeDBS']
+    collection = db['roads_metadata']
+
+    cursor = collection.find()
+
+    data_list = list(cursor)
+    metadata_df = pd.DataFrame(data_list)
+
+    client.close()
+
+    current_datetime = datetime.now()
+
+    start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    end_date = start_date + timedelta(days=5)
+
+    timestamps = [start_date + timedelta(minutes=i*5) for i in range(int((end_date - start_date).total_seconds() // 300))]
+
+    prediction_data_list = []
+
+    for index, row in metadata_df.iterrows():
+        road_id = row["road_id"]
+        road_length = row["length"]
+        road_shape = row["shape"]
+        road_start_lat = row['start_lat']
+        road_start_lng = row['start_lng']
+        prediction_data = pd.DataFrame({'road_id': [road_id] * len(timestamps),
+                                        'length': [road_length] * len(timestamps),
+                                        'shape': [road_shape] * len(timestamps),
+                                        'start_lat': [road_start_lat] * len(timestamps),
+                                        'start_lng': [road_start_lng] * len(timestamps),
+                                        'timestamp': timestamps})
+        prediction_data_list.append(prediction_data)
+
+    combined_data = pd.concat(prediction_data_list, ignore_index=True)
+
+    combined_data['timestamp'] = pd.to_datetime(combined_data['timestamp'])
+    original_time_zone = 'Asia/Singapore'
+    combined_data['timestamp'] = combined_data['timestamp'].dt.tz_localize(original_time_zone)
+    combined_data['timestamp'] = combined_data['timestamp'].dt.tz_convert('GMT')
+
+    locations = [
+        {"latitude": 1.35806, "longitude": 103.940277},  # Tampines estate
+        {"latitude": 1.36667, "longitude": 103.883331},  # Somapah Serangoon
+        {"latitude": 1.36667, "longitude": 103.800003},  # Republic of Singapore
+        {"latitude": 1.28967, "longitude": 103.850067},  # Singapore
+        {"latitude": 1.41, "longitude": 103.874168},  # Seletar
+        {"latitude": 1.37833, "longitude": 103.931938},  # Kampong Pasir Ris
+        {"latitude": 1.42611, "longitude": 103.824173},  # Chye Kay
+        {"latitude": 1.35, "longitude": 103.833328},  # Bright Hill Crescent
+        {"latitude": 1.30139, "longitude": 103.797501},  # Tanglin Halt
+        {"latitude": 1.44444, "longitude": 103.776672},  # Woodlands
+        {"latitude": 1.35722, "longitude": 103.836388},  # Thomson Park
+        {"latitude": 1.31139, "longitude": 103.797783},  # Chinese Gardens
+        {"latitude": 1.35222, "longitude": 103.898064},  # Kampong Siren
+        {"latitude": 1.36278, "longitude": 103.908333},  # Punggol Estate
+    ]
+
+    weather_data_dict = {}
+
+    def get_weather_data(location, timestamp):
+        latitude, longitude = location["latitude"], location["longitude"]
+        api_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&appid={weather_apikey}"
+        response = requests.get(api_url)
+        weather_list = response.json()["list"]
+        return location, weather_list
+    
+    for location in locations:
+        location_data, weather_list = get_weather_data(location, timestamps[0])  # Get weather data for the first timestamp
+        weather_data_dict[location_data['latitude'], location_data['longitude']] = weather_list
+
+    def calculate_distance(coord1, coord2):
+        return geodesic(coord1, coord2).meters
+    
+    def get_closest_weather_to_timestamp(weather, timestamp):
+        target_timestamp = int(datetime.timestamp(timestamp))
+        closest_weather = min(weather, key=lambda x: abs(x['dt'] - target_timestamp))
+        return closest_weather
+    
+    count = 0
+
+    def get_weather_attributes(location, timestamp):
+        weather_list = weather_data_dict[location['latitude'], location['longitude']]
+        closest_weather = get_closest_weather_to_timestamp(weather_list, timestamp)
+        
+        global count
+        
+        print(count)
+        count +=1
+        
+        return {
+            'temperature': closest_weather.get('main', {}).get('temp', 0),
+            'humidity': closest_weather.get('main', {}).get('humidity', 0),
+            'pressure': closest_weather.get('main', {}).get('pressure', 0),
+            'visibility': closest_weather.get('visibility', 0),
+            'wind_speed': closest_weather.get('wind', {}).get('speed', 0),
+            'wind_degree': closest_weather.get('wind', {}).get('deg', 0),
+            'wind_gust': closest_weather.get('wind', {}).get('gust', 0),
+            'clouds': closest_weather.get('clouds', {}).get('all', 0),
+            'rain_3h': closest_weather.get('rain', {}).get('3h', 0)
+        }
+    
+    combined_data = pd.concat([combined_data, combined_data.apply(lambda row: get_weather_attributes(min(locations, key=lambda loc: calculate_distance((row['start_lat'], row['start_lng']), (loc['latitude'], loc['longitude']))), row['timestamp']), axis=1, result_type='expand')], axis=1)
+
+    results = combined_data.to_dict("records")
 
     return jsonify(results)
 
