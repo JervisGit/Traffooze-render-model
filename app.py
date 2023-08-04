@@ -247,6 +247,36 @@ def generate():
 
     return jsonify(results)
 
+@app.route('/weather', methods=['GET'])
+def weather():
+
+    weather_data_dict = {}
+
+    locations = [
+        {"latitude": 1.35806, "longitude": 103.940277},  # Tampines estate
+        {"latitude": 1.36667, "longitude": 103.883331},  # Somapah Serangoon
+        {"latitude": 1.36667, "longitude": 103.800003},  # Republic of Singapore
+        {"latitude": 1.28967, "longitude": 103.850067},  # Singapore
+        {"latitude": 1.41, "longitude": 103.874168},  # Seletar
+        {"latitude": 1.37833, "longitude": 103.931938},  # Kampong Pasir Ris
+        {"latitude": 1.42611, "longitude": 103.824173},  # Chye Kay
+        {"latitude": 1.35, "longitude": 103.833328},  # Bright Hill Crescent
+        {"latitude": 1.30139, "longitude": 103.797501},  # Tanglin Halt
+        {"latitude": 1.44444, "longitude": 103.776672},  # Woodlands
+        {"latitude": 1.35722, "longitude": 103.836388},  # Thomson Park
+        {"latitude": 1.31139, "longitude": 103.797783},  # Chinese Gardens
+        {"latitude": 1.35222, "longitude": 103.898064},  # Kampong Siren
+        {"latitude": 1.36278, "longitude": 103.908333},  # Punggol Estate
+    ]
+    
+    for location in locations:
+        latitude, longitude = location["latitude"], location["longitude"]
+        api_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&appid={weather_apikey}"
+        response = requests.get(api_url)
+        weather_list = response.json()["list"]
+        weather_data_dict[latitude, longitude] = weather_list
+
+    return jsonify(weather_data_dict)
 
 @app.route('/save_trafficjam', methods=['GET'])
 def save_trafficjam():
