@@ -274,7 +274,7 @@ def weather():
         api_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&appid={weather_apikey}"
         response = requests.get(api_url)
         weather_list = response.json()["list"]
-        weather_data_dict[latitude, longitude] = weather_list
+        weather_data_dict[f"{latitude},{longitude}"] = weather_list
 
     return jsonify(weather_data_dict)
 
