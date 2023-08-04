@@ -136,7 +136,7 @@ def process():
     return jsonify(results)
 
 @app.route('/generate_predictions', methods=['GET'])
-def process():
+def generate():
 
     client = pymongo.MongoClient(mongo_uri)
     db = client['TraffoozeDBS']
