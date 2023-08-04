@@ -153,7 +153,7 @@ def generate():
 
     start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    end_date = start_date + timedelta(days=5)
+    end_date = start_date + timedelta(days=1)
 
     timestamps = [start_date + timedelta(minutes=i*5) for i in range(int((end_date - start_date).total_seconds() // 300))]
 
