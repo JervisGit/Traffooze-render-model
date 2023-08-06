@@ -565,15 +565,14 @@ def get_roadaccident():
 
     return jsonify(road_accidents)
 
-def start_scheduler():
-    scheduler = BackgroundScheduler(daemon=True)
-    scheduler.add_job(save_trafficjam, 'interval', minutes=5)
-    scheduler.add_job(save_roadclosure, 'interval', minutes=5)
-    scheduler.add_job(save_roadaccident, 'interval', minutes=5)
-    scheduler.start()
+
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(save_trafficjam, 'interval', minutes=5)
+scheduler.add_job(save_roadclosure, 'interval', minutes=5)
+scheduler.add_job(save_roadaccident, 'interval', minutes=5)
+scheduler.start()
 
 if __name__ == '__main__':
-    start_scheduler()
     app.run(port=3000, debug=True)
 
 #yep
