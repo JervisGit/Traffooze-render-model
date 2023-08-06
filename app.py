@@ -12,9 +12,16 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
+from celery import Celery
 
 app = Flask(__name__)
 CORS(app)
+
+app.config['CELERY_BROKER_URL'] = 'redis://red-cj7r3dc5kgrc73bkvuv0:6379'
+
+celery = Celery(app.name)
+celery.conf.broker_url = app.config['CELERY_BROKER_URL']
+celery.conf.timezone = 'UTC'
 
 mongo_uri = os.environ.get('mongoDB')
 apikey = os.environ.get('apiKey')
@@ -136,8 +143,8 @@ def process():
 
     return jsonify(results)
 
-@app.route('/generate_predictions', methods=['GET'])
-def generate():
+@celery.task
+def traffic_flow_predictions():
 
     client = pymongo.MongoClient(mongo_uri)
     db = client['TraffoozeDBS']
@@ -219,16 +226,16 @@ def generate():
         closest_weather = min(weather, key=lambda x: abs(x['dt'] - target_timestamp))
         return closest_weather
     
-    count = 0
+    #count = 0
 
     def get_weather_attributes(location, timestamp):
         weather_list = weather_data_dict[location['latitude'], location['longitude']]
         closest_weather = get_closest_weather_to_timestamp(weather_list, timestamp)
         
-        global count
+        #global count
         
-        print(count)
-        count +=1
+        #print(count)
+        #count +=1
         
         return {
             'temperature': closest_weather.get('main', {}).get('temp', 0),
@@ -243,8 +250,17 @@ def generate():
         }
     
     combined_data = pd.concat([combined_data, combined_data.apply(lambda row: get_weather_attributes(min(locations, key=lambda loc: calculate_distance((row['start_lat'], row['start_lng']), (loc['latitude'], loc['longitude']))), row['timestamp']), axis=1, result_type='expand')], axis=1)
-
+    
     results = combined_data.to_dict("records")
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+
+    collection.insert_many(results)
+
+    client.close()
 
     return jsonify(results)
 
@@ -352,14 +368,6 @@ def save_trafficjam():
     else:
         client.close()
         return f"Received {len(traffic_jams)} records. No traffic jams to insert."
-    '''
-    if result.inserted_ids:
-        client.close()
-        return "Traffic jams saved successfully."
-    else:
-        client.close()
-        return "No traffic jams to insert."
-    '''
     
 @app.route('/trafficjam', methods=['GET'])
 def get_trafficjam():
@@ -428,8 +436,6 @@ def save_roadclosure():
         road_closure["address"] = address
 
         road_closures.append(road_closure)   
-
-    #result = collection.insert_many(road_closures)
 
     existing_records = collection.find({}, {'_id': 0})
 
@@ -521,8 +527,6 @@ def save_roadaccident():
 
         road_accidents.append(road_accident)   
 
-    #result = collection.insert_many(road_accidents)
-
     existing_records = collection.find({}, {'_id': 0})
 
     existing_records_set = {tuple(record.values()) for record in existing_records}
@@ -572,7 +576,44 @@ scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 scheduler.start()
 
+@celery.task
+def try_celery():
+    
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+
+    current_datetime = datetime.now()
+
+    data_to_insert = {'data': current_datetime}
+
+    collection.insert_one(data_to_insert)
+
+    client.close()
+
+    return data_to_insert
+
+def schedule_tasks():
+    # Schedule the tasks using cron expressions
+    '''
+    celery.conf.beat_schedule = {
+        'trafficflow_predictions': {
+            'task': 'app.traffic_flow_predictions',
+            'schedule': '0 0 * * *',  # Run once a day at midnight
+        },
+    }
+    '''
+    celery.conf.beat_schedule = {
+        'try_celery': {
+            'task': 'app.try_celery',
+            'schedule': 60.0,
+        },
+    }
+
 if __name__ == '__main__':
+    schedule_tasks()
+    celery.start()
     app.run(port=3000, debug=True)
 
 #yep
