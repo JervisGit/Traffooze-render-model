@@ -326,14 +326,39 @@ def save_trafficjam():
 
         traffic_jams.append(traffic_jam)   
 
-    result = collection.insert_many(traffic_jams)
+    #result = collection.insert_many(traffic_jams)
 
+    # Perform condition checking for duplicates
+
+    existing_records = collection.find({}, {'_id': 0})
+
+    existing_records_set = {tuple(record.values()) for record in existing_records}
+
+    non_duplicate_data = []
+
+    for jam in traffic_jams:
+        # Convert the current data to a tuple for comparison
+        current_data_tuple = tuple(jam.values())
+
+        if current_data_tuple not in existing_records_set:
+            # If the data is not a duplicate, append it to the list
+            non_duplicate_data.append(jam)
+    
+    if non_duplicate_data:
+        collection.insert_many(non_duplicate_data)
+        client.close()
+        return f"Received {len(traffic_jams)} records. {len(non_duplicate_data)} Traffic jams inserted successfully."
+    else:
+        client.close()
+        return f"Received {len(traffic_jams)} records. No traffic jams to insert."
+    '''
     if result.inserted_ids:
         client.close()
         return "Traffic jams saved successfully."
     else:
         client.close()
         return "No traffic jams to insert."
+    '''
     
 @app.route('/trafficjam', methods=['GET'])
 def get_trafficjam():
@@ -403,14 +428,29 @@ def save_roadclosure():
 
         road_closures.append(road_closure)   
 
-    result = collection.insert_many(road_closures)
+    #result = collection.insert_many(road_closures)
 
-    if result.inserted_ids:
+    existing_records = collection.find({}, {'_id': 0})
+
+    existing_records_set = {tuple(record.values()) for record in existing_records}
+
+    non_duplicate_data = []
+
+    for closure in road_closures:
+        # Convert the current data to a tuple for comparison
+        current_data_tuple = tuple(closure.values())
+
+        if current_data_tuple not in existing_records_set:
+            # If the data is not a duplicate, append it to the list
+            non_duplicate_data.append(closure)
+    
+    if non_duplicate_data:
+        collection.insert_many(non_duplicate_data)
         client.close()
-        return "Road closures saved successfully."
+        return f"Received {len(road_closures)} records. {len(non_duplicate_data)} Road closures inserted successfully."
     else:
         client.close()
-        return "No Road closures to insert."
+        return f"Received {len(road_closures)} records. No traffic jams to insert."
     
 @app.route('/roadclosure', methods=['GET'])
 def get_roadclosure():
@@ -480,14 +520,29 @@ def save_roadaccident():
 
         road_accidents.append(road_accident)   
 
-    result = collection.insert_many(road_accidents)
+    #result = collection.insert_many(road_accidents)
 
-    if result.inserted_ids:
+    existing_records = collection.find({}, {'_id': 0})
+
+    existing_records_set = {tuple(record.values()) for record in existing_records}
+
+    non_duplicate_data = []
+
+    for accident in road_accidents:
+        # Convert the current data to a tuple for comparison
+        current_data_tuple = tuple(accident.values())
+
+        if current_data_tuple not in existing_records_set:
+            # If the data is not a duplicate, append it to the list
+            non_duplicate_data.append(accident)
+    
+    if non_duplicate_data:
+        collection.insert_many(non_duplicate_data)
         client.close()
-        return "Road accidents saved successfully."
+        return f"Received {len(road_accidents)} records. {len(non_duplicate_data)} Road accidents inserted successfully."
     else:
         client.close()
-        return "No road accidents to insert."
+        return f"Received {len(road_accidents)} records. No road accidents to insert."
     
 @app.route('/roadaccident', methods=['GET'])
 def get_roadaccident():
