@@ -148,6 +148,17 @@ def traffic_flow_predictions():
 
     client = pymongo.MongoClient(mongo_uri)
     db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+          
+    current_datetime = datetime.now()
+
+    data_to_insert = {'status': "Started", 'time': current_datetime}
+          
+    collection.insert_one(data_to_insert)
+    client.close()
+
+    client = pymongo.MongoClient(mongo_uri)
+    db = client['TraffoozeDBS']
     collection = db['roads_metadata']
 
     cursor = collection.find()
@@ -161,7 +172,7 @@ def traffic_flow_predictions():
 
     start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    end_date = start_date + timedelta(days=5)
+    end_date = start_date + timedelta(days=1)
 
     timestamps = [start_date + timedelta(minutes=i*5) for i in range(int((end_date - start_date).total_seconds() // 300))]
 
@@ -234,7 +245,7 @@ def traffic_flow_predictions():
         
         global count
         
-        if count % 1000 == 0:
+        if count % 100 == 0:
           client = pymongo.MongoClient(mongo_uri)
           db = client['TraffoozeDBS']
           collection = db['test_predictions']
