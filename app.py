@@ -12,7 +12,7 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-from celery import Celery
+import Celery
 
 app = Flask(__name__)
 CORS(app)
