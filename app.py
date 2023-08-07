@@ -735,7 +735,7 @@ def save_to_mongo(combined_data_chunk, mongo_uri):
     client.close()
 
 @celery.task
-def process_data_chunk_task(timestamp_chunk, metadata_df, locations, weather_data_dict):
+def process_data_chunk_task(timestamp_chunk, metadata_dict, locations, weather_data_dict):
     client = pymongo.MongoClient(mongo_uri)
 
     db = client['TraffoozeDBS']
@@ -746,6 +746,8 @@ def process_data_chunk_task(timestamp_chunk, metadata_df, locations, weather_dat
     collection.insert_one(data_to_insert)
 
     client.close()
+
+    metadata_df = pd.DataFrame(metadata_dict)
 
     combined_data_chunk = process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dict)
     save_to_mongo(combined_data_chunk, mongo_uri)
@@ -803,6 +805,8 @@ def trigger_processing():
 
     client.close()
 
+    metadata_dict = metadata_df.to_dict('records')
+
     chunk_size = 1  # Define an appropriate chunk size based on your memory limitation
 
     tasks = []
@@ -820,7 +824,7 @@ def trigger_processing():
         client.close()
         '''
         timestamp_chunk = timestamps[i:i + chunk_size]
-        task = process_data_chunk_task.s(timestamp_chunk, metadata_df, locations, weather_data_dict)
+        task = process_data_chunk_task.s(timestamp_chunk, metadata_dict, locations, weather_data_dict)
         tasks.append(task)
 
         # Chain the tasks to ensure sequential execution
@@ -835,7 +839,7 @@ scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
 #scheduler.add_job(traffic_flow_predictions, 'interval', minutes=9)
-scheduler.add_job(trigger_processing, 'interval', minutes=3)
+#scheduler.add_job(trigger_processing, 'interval', minutes=3)
 scheduler.start()
 
 if __name__ == '__main__':
