@@ -13,3 +13,4 @@ geopy==2.2.0
 APScheduler==3.7.0
 redis==3.5.3
 celery==5.2.2
+importlib-metadata==4.13.0
