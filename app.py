@@ -645,7 +645,14 @@ def generate_timestamps(start_date, end_date):
     timestamps = [start_date + timedelta(minutes=i*5) for i in range(int((end_date - start_date).total_seconds() // 300))]
     return timestamps
 
-def process_data_chunk(timestamp_chunk, metadata_df, locations, weather_apikey):
+def get_weather_data(location, timestamp):
+    latitude, longitude = location["latitude"], location["longitude"]
+    api_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&appid={weather_apikey}"
+    response = requests.get(api_url)
+    weather_list = response.json()["list"]
+    return location, weather_list
+
+def process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dict):
     combined_data_list = []
 
     for index, row in metadata_df.iterrows():
@@ -668,19 +675,6 @@ def process_data_chunk(timestamp_chunk, metadata_df, locations, weather_apikey):
     original_time_zone = 'Asia/Singapore'
     combined_data_chunk['timestamp'] = combined_data_chunk['timestamp'].dt.tz_localize(original_time_zone)
     combined_data_chunk['timestamp'] = combined_data_chunk['timestamp'].dt.tz_convert('GMT')
-
-    weather_data_dict = {}
-
-    def get_weather_data(location, timestamp):
-        latitude, longitude = location["latitude"], location["longitude"]
-        api_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&appid={weather_apikey}"
-        response = requests.get(api_url)
-        weather_list = response.json()["list"]
-        return location, weather_list
-
-    for location in locations:
-        location_data, weather_list = get_weather_data(location, timestamp_chunk[0])  # Get weather data for the first timestamp
-        weather_data_dict[location_data['latitude'], location_data['longitude']] = weather_list
 
     def calculate_distance(coord1, coord2):
         return geodesic(coord1, coord2).meters
@@ -719,7 +713,7 @@ def save_to_mongo(combined_data_chunk, mongo_uri):
     collection.insert_many(results)
     client.close()
 
-@app.route('/process_data')
+@celery.task
 def trigger_processing():
     current_datetime = datetime.now()
     start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -755,10 +749,16 @@ def trigger_processing():
         {"latitude": 1.36278, "longitude": 103.908333},  # Punggol Estate
     ]
 
-    chunk_size = 50  # Define an appropriate chunk size based on your memory limitation
+    weather_data_dict = {}
+    
+    for location in locations:
+        location_data, weather_list = get_weather_data(location, timestamps[0])  # Get weather data for the first timestamp
+        weather_data_dict[location_data['latitude'], location_data['longitude']] = weather_list
+
+    chunk_size = 1  # Define an appropriate chunk size based on your memory limitation
 
     for i in range(0, len(timestamps), chunk_size):
-
+        '''
         client = pymongo.MongoClient(mongo_uri)
 
         db = client['TraffoozeDBS']
@@ -769,9 +769,9 @@ def trigger_processing():
         collection.insert_one(data_to_insert)
 
         client.close()
-
+        '''
         timestamp_chunk = timestamps[i:i + chunk_size]
-        combined_data_chunk = process_data_chunk(timestamp_chunk, metadata_df, locations, weather_apikey)
+        combined_data_chunk = process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dict)
         save_to_mongo(combined_data_chunk, mongo_uri)
 
     return "Processing started."
@@ -782,6 +782,7 @@ scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
 #scheduler.add_job(traffic_flow_predictions, 'interval', minutes=9)
+scheduler.add_job(trigger_processing, 'interval', minutes=9)
 scheduler.start()
 
 if __name__ == '__main__':
