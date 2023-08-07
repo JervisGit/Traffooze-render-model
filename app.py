@@ -714,6 +714,11 @@ def save_to_mongo(combined_data_chunk, mongo_uri):
     client.close()
 
 @celery.task
+def process_data_chunk_task(timestamp_chunk, metadata_df, locations, weather_data_dict):
+    combined_data_chunk = process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dict)
+    save_to_mongo(combined_data_chunk, mongo_uri)
+
+@app.route('/process_data')
 def trigger_processing():
     current_datetime = datetime.now()
     start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -771,8 +776,7 @@ def trigger_processing():
         client.close()
         '''
         timestamp_chunk = timestamps[i:i + chunk_size]
-        combined_data_chunk = process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dict)
-        save_to_mongo(combined_data_chunk, mongo_uri)
+        scheduler.add_job(process_data_chunk_task, args=[timestamp_chunk, metadata_df, locations, weather_data_dict], id=f'task_{i}', misfire_grace_time=600)
 
     return "Processing started."
 
@@ -782,7 +786,7 @@ scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
 #scheduler.add_job(traffic_flow_predictions, 'interval', minutes=9)
-scheduler.add_job(trigger_processing, 'interval', minutes=9)
+scheduler.add_job(trigger_processing, 'interval', minutes=3)
 scheduler.start()
 
 if __name__ == '__main__':
