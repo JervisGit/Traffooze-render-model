@@ -671,6 +671,16 @@ def process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dic
 
     combined_data_chunk = pd.concat(combined_data_list, ignore_index=True)
 
+    client = pymongo.MongoClient(mongo_uri)
+    db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+
+    data_to_insert = {'len': len(combined_data_chunk),'chunk': timestamp_chunk}
+
+    collection.insert_one(data_to_insert)
+
+    client.close()
+
     combined_data_chunk['timestamp'] = pd.to_datetime(combined_data_chunk['timestamp'])
     original_time_zone = 'Asia/Singapore'
     combined_data_chunk['timestamp'] = combined_data_chunk['timestamp'].dt.tz_localize(original_time_zone)
@@ -776,7 +786,7 @@ def trigger_processing():
     db = client['TraffoozeDBS']
     collection = db['test_predictions']
 
-    data_to_insert = {'status': "all ok up to this point", "data": weather_data_dict}
+    data_to_insert = {'status': "all ok up to this point"}
 
     collection.insert_one(data_to_insert)
 
