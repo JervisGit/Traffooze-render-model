@@ -12,7 +12,7 @@ from geopy.geocoders import Nominatim
 from geopy.distance import geodesic
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
-from celery import Celery
+from celery import Celery, chain
 
 app = Flask(__name__)
 CORS(app)
@@ -653,6 +653,17 @@ def get_weather_data(location, timestamp):
     return location, weather_list
 
 def process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dict):
+
+    client = pymongo.MongoClient(mongo_uri)
+    db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+
+    data_to_insert = {'status': 'all good'}
+
+    collection.insert_one(data_to_insert)
+
+    client.close()
+
     combined_data_list = []
 
     for index, row in metadata_df.iterrows():
@@ -794,6 +805,7 @@ def trigger_processing():
 
     chunk_size = 1  # Define an appropriate chunk size based on your memory limitation
 
+    tasks = []
     for i in range(0, len(timestamps), chunk_size):
         '''
         client = pymongo.MongoClient(mongo_uri)
@@ -808,7 +820,12 @@ def trigger_processing():
         client.close()
         '''
         timestamp_chunk = timestamps[i:i + chunk_size]
-        scheduler.add_job(process_data_chunk_task, args=[timestamp_chunk, metadata_df, locations, weather_data_dict], id=f'task_{i}', misfire_grace_time=600)
+        task = process_data_chunk_task.s(timestamp_chunk, metadata_df, locations, weather_data_dict)
+        tasks.append(task)
+
+        # Chain the tasks to ensure sequential execution
+        result = chain(*tasks)()
+        result.get()
 
     return "Processing started."
 
