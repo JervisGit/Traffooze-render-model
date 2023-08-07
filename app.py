@@ -156,7 +156,7 @@ def traffic_flow_predictions():
           
     collection.insert_one(data_to_insert)
     client.close()
-    '''
+    
     client = pymongo.MongoClient(mongo_uri)
     db = client['TraffoozeDBS']
     collection = db['roads_metadata']
@@ -285,8 +285,6 @@ def traffic_flow_predictions():
     client.close()
     
     return jsonify(results)
-    '''
-    return data_to_insert
 
 @app.route('/weather', methods=['GET'])
 def weather():
@@ -648,7 +646,7 @@ scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
-scheduler.add_job(traffic_flow_predictions, 'interval', minutes=1)
+scheduler.add_job(traffic_flow_predictions, 'interval', minutes=3)
 scheduler.start()
 
 if __name__ == '__main__':
