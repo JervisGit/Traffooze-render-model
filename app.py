@@ -584,14 +584,6 @@ def get_roadaccident():
 
     return jsonify(road_accidents)
 
-
-scheduler = BackgroundScheduler(daemon=True)
-scheduler.add_job(save_trafficjam, 'interval', minutes=5)
-scheduler.add_job(save_roadclosure, 'interval', minutes=5)
-scheduler.add_job(save_roadaccident, 'interval', minutes=5)
-scheduler.add_job(save_trafficjam, 'interval', minutes=5)
-scheduler.start()
-
 @celery.task
 def try_celery():
     
@@ -626,6 +618,13 @@ def schedule_tasks():
             'schedule': 60.0,
         },
     }
+
+scheduler = BackgroundScheduler(daemon=True)
+scheduler.add_job(save_trafficjam, 'interval', minutes=5)
+scheduler.add_job(save_roadclosure, 'interval', minutes=5)
+scheduler.add_job(save_roadaccident, 'interval', minutes=5)
+scheduler.add_job(try_celery, 'interval', minutes=1)
+scheduler.start()
 
 if __name__ == '__main__':
     schedule_tasks()
