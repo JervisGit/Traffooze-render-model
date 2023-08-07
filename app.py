@@ -307,7 +307,12 @@ def save_trafficjam():
              'accept' : 'application/json'}
 
     response = requests.get('http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents', headers=headers)
-    data = response.json()["value"]
+    data = response.json().get("value", [])  # Use .get() method to get the value or return an empty list if it doesn't exist
+
+    if not data:
+        client.close()
+        return "No traffic incidents data available from the API."
+    
     df = pd.DataFrame(data)
     df[['Date', 'Time']] = df['Message'].str.extract(r'\((.*?)\)(.*?) ')
 
@@ -401,7 +406,12 @@ def save_roadclosure():
              'accept' : 'application/json'}
 
     response = requests.get('http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents', headers=headers)
-    data = response.json()["value"]
+    data = response.json().get("value", [])  # Use .get() method to get the value or return an empty list if it doesn't exist
+
+    if not data:
+        client.close()
+        return "No traffic incidents data available from the API."
+    
     df = pd.DataFrame(data)
     df[['Date', 'Time']] = df['Message'].str.extract(r'\((.*?)\)(.*?) ')
 
@@ -491,7 +501,12 @@ def save_roadaccident():
              'accept' : 'application/json'}
 
     response = requests.get('http://datamall2.mytransport.sg/ltaodataservice/TrafficIncidents', headers=headers)
-    data = response.json()["value"]
+    data = response.json().get("value", [])  # Use .get() method to get the value or return an empty list if it doesn't exist
+
+    if not data:
+        client.close()
+        return "No traffic incidents data available from the API."
+    
     df = pd.DataFrame(data)
     df[['Date', 'Time']] = df['Message'].str.extract(r'\((.*?)\)(.*?) ')
 
@@ -574,6 +589,7 @@ scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
+scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.start()
 
 @celery.task
