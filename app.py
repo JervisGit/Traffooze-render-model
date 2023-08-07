@@ -646,7 +646,7 @@ scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
-scheduler.add_job(traffic_flow_predictions, 'interval', days=1)
+scheduler.add_job(traffic_flow_predictions, 'interval', minutes=15)
 scheduler.start()
 
 if __name__ == '__main__':
