@@ -715,6 +715,17 @@ def save_to_mongo(combined_data_chunk, mongo_uri):
 
 @celery.task
 def process_data_chunk_task(timestamp_chunk, metadata_df, locations, weather_data_dict):
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+
+    data_to_insert = {'chunk': timestamp_chunk}
+
+    collection.insert_one(data_to_insert)
+
+    client.close()
+
     combined_data_chunk = process_data_chunk(timestamp_chunk, metadata_df, locations, weather_data_dict)
     save_to_mongo(combined_data_chunk, mongo_uri)
 
@@ -759,6 +770,17 @@ def trigger_processing():
     for location in locations:
         location_data, weather_list = get_weather_data(location, timestamps[0])  # Get weather data for the first timestamp
         weather_data_dict[location_data['latitude'], location_data['longitude']] = weather_list
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+
+    data_to_insert = {'status': "all ok up to this point", "data": weather_data_dict}
+
+    collection.insert_one(data_to_insert)
+
+    client.close()
 
     chunk_size = 1  # Define an appropriate chunk size based on your memory limitation
 
