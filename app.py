@@ -161,7 +161,7 @@ def traffic_flow_predictions():
 
     start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    end_date = start_date + timedelta(days=1)
+    end_date = start_date + timedelta(days=5)
 
     timestamps = [start_date + timedelta(minutes=i*5) for i in range(int((end_date - start_date).total_seconds() // 300))]
 
@@ -226,16 +226,27 @@ def traffic_flow_predictions():
         closest_weather = min(weather, key=lambda x: abs(x['dt'] - target_timestamp))
         return closest_weather
     
-    #count = 0
+    count = 0
 
     def get_weather_attributes(location, timestamp):
         weather_list = weather_data_dict[location['latitude'], location['longitude']]
         closest_weather = get_closest_weather_to_timestamp(weather_list, timestamp)
         
-        #global count
+        global count
         
-        #print(count)
-        #count +=1
+        if count % 1000 == 0:
+          client = pymongo.MongoClient(mongo_uri)
+          db = client['TraffoozeDBS']
+          collection = db['test_predictions']
+          
+          current_datetime = datetime.now()
+
+          data_to_insert = {'count': count, 'time': current_datetime}
+          
+          collection.insert_one(data_to_insert)
+          client.close()  
+
+        count +=1
         
         return {
             'temperature': closest_weather.get('main', {}).get('temp', 0),
@@ -623,7 +634,8 @@ scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
-scheduler.add_job(try_celery, 'interval', minutes=1)
+#scheduler.add_job(try_celery, 'interval', minutes=1)
+scheduler.add_job(traffic_flow_predictions, 'interval', minutes=1)
 scheduler.start()
 
 if __name__ == '__main__':
