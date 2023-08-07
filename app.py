@@ -764,7 +764,9 @@ def trigger_processing():
     db = client['TraffoozeDBS']
     collection = db['roads_metadata']
 
-    cursor = collection.find()
+    projection = {"_id": 0}
+
+    cursor = collection.find(projection=projection)
 
     data_list = list(cursor)
     metadata_df = pd.DataFrame(data_list)
