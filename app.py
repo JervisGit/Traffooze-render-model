@@ -172,7 +172,7 @@ def traffic_flow_predictions():
 
     start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
 
-    end_date = start_date + timedelta(days=1)
+    end_date = start_date + timedelta(hours=12)
 
     timestamps = [start_date + timedelta(minutes=i*5) for i in range(int((end_date - start_date).total_seconds() // 300))]
 
@@ -646,7 +646,7 @@ scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
-scheduler.add_job(traffic_flow_predictions, 'interval', minutes=3)
+scheduler.add_job(traffic_flow_predictions, 'interval', minutes=5)
 scheduler.start()
 
 if __name__ == '__main__':
