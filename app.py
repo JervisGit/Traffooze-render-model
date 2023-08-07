@@ -152,11 +152,11 @@ def traffic_flow_predictions():
           
     current_datetime = datetime.now()
 
-    data_to_insert = {'status': "Started", 'time': current_datetime}
+    data_to_insert = {'status': "running", 'time': current_datetime}
           
     collection.insert_one(data_to_insert)
     client.close()
-
+    '''
     client = pymongo.MongoClient(mongo_uri)
     db = client['TraffoozeDBS']
     collection = db['roads_metadata']
@@ -283,8 +283,10 @@ def traffic_flow_predictions():
     collection.insert_many(results)
 
     client.close()
-
+    
     return jsonify(results)
+    '''
+    return data_to_insert
 
 @app.route('/weather', methods=['GET'])
 def weather():
