@@ -641,12 +641,147 @@ def schedule_tasks():
         },
     }
 
+def generate_timestamps(start_date, end_date):
+    timestamps = [start_date + timedelta(minutes=i*5) for i in range(int((end_date - start_date).total_seconds() // 300))]
+    return timestamps
+
+def process_data_chunk(timestamp_chunk, metadata_df, locations, weather_apikey):
+    combined_data_list = []
+
+    for index, row in metadata_df.iterrows():
+        road_id = row["road_id"]
+        road_length = row["length"]
+        road_shape = row["shape"]
+        road_start_lat = row['start_lat']
+        road_start_lng = row['start_lng']
+        prediction_data = pd.DataFrame({'road_id': [road_id] * len(timestamp_chunk),
+                                        'length': [road_length] * len(timestamp_chunk),
+                                        'shape': [road_shape] * len(timestamp_chunk),
+                                        'start_lat': [road_start_lat] * len(timestamp_chunk),
+                                        'start_lng': [road_start_lng] * len(timestamp_chunk),
+                                        'timestamp': timestamp_chunk})
+        combined_data_list.append(prediction_data)
+
+    combined_data_chunk = pd.concat(combined_data_list, ignore_index=True)
+
+    combined_data_chunk['timestamp'] = pd.to_datetime(combined_data_chunk['timestamp'])
+    original_time_zone = 'Asia/Singapore'
+    combined_data_chunk['timestamp'] = combined_data_chunk['timestamp'].dt.tz_localize(original_time_zone)
+    combined_data_chunk['timestamp'] = combined_data_chunk['timestamp'].dt.tz_convert('GMT')
+
+    weather_data_dict = {}
+
+    def get_weather_data(location, timestamp):
+        latitude, longitude = location["latitude"], location["longitude"]
+        api_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&appid={weather_apikey}"
+        response = requests.get(api_url)
+        weather_list = response.json()["list"]
+        return location, weather_list
+
+    for location in locations:
+        location_data, weather_list = get_weather_data(location, timestamp_chunk[0])  # Get weather data for the first timestamp
+        weather_data_dict[location_data['latitude'], location_data['longitude']] = weather_list
+
+    def calculate_distance(coord1, coord2):
+        return geodesic(coord1, coord2).meters
+
+    def get_closest_weather_to_timestamp(weather, timestamp):
+        target_timestamp = int(datetime.timestamp(timestamp))
+        closest_weather = min(weather, key=lambda x: abs(x['dt'] - target_timestamp))
+        return closest_weather
+
+    def get_weather_attributes(location, timestamp):
+        weather_list = weather_data_dict[location['latitude'], location['longitude']]
+        closest_weather = get_closest_weather_to_timestamp(weather_list, timestamp)
+
+        return {
+            'temperature': closest_weather.get('main', {}).get('temp', 0),
+            'humidity': closest_weather.get('main', {}).get('humidity', 0),
+            'pressure': closest_weather.get('main', {}).get('pressure', 0),
+            'visibility': closest_weather.get('visibility', 0),
+            'wind_speed': closest_weather.get('wind', {}).get('speed', 0),
+            'wind_degree': closest_weather.get('wind', {}).get('deg', 0),
+            'wind_gust': closest_weather.get('wind', {}).get('gust', 0),
+            'clouds': closest_weather.get('clouds', {}).get('all', 0),
+            'rain_3h': closest_weather.get('rain', {}).get('3h', 0)
+        }
+
+    combined_data_chunk = pd.concat([combined_data_chunk, combined_data_chunk.apply(lambda row: get_weather_attributes(min(locations, key=lambda loc: calculate_distance((row['start_lat'], row['start_lng']), (loc['latitude'], loc['longitude']))), row['timestamp']), axis=1, result_type='expand')], axis=1)
+
+    return combined_data_chunk
+
+def save_to_mongo(combined_data_chunk, mongo_uri):
+    results = combined_data_chunk.to_dict("records")
+
+    client = pymongo.MongoClient(mongo_uri)
+    db = client['TraffoozeDBS']
+    collection = db['test_predictions']
+    collection.insert_many(results)
+    client.close()
+
+@app.route('/process_data')
+def trigger_processing():
+    current_datetime = datetime.now()
+    start_date = current_datetime.replace(hour=0, minute=0, second=0, microsecond=0)
+    end_date = start_date + timedelta(hours=12)  # Half a day
+
+    timestamps = generate_timestamps(start_date, end_date)
+
+    client = pymongo.MongoClient(mongo_uri)
+    db = client['TraffoozeDBS']
+    collection = db['roads_metadata']
+
+    cursor = collection.find()
+
+    data_list = list(cursor)
+    metadata_df = pd.DataFrame(data_list)
+
+    client.close()
+
+    locations = [
+        {"latitude": 1.35806, "longitude": 103.940277},  # Tampines estate
+        {"latitude": 1.36667, "longitude": 103.883331},  # Somapah Serangoon
+        {"latitude": 1.36667, "longitude": 103.800003},  # Republic of Singapore
+        {"latitude": 1.28967, "longitude": 103.850067},  # Singapore
+        {"latitude": 1.41, "longitude": 103.874168},  # Seletar
+        {"latitude": 1.37833, "longitude": 103.931938},  # Kampong Pasir Ris
+        {"latitude": 1.42611, "longitude": 103.824173},  # Chye Kay
+        {"latitude": 1.35, "longitude": 103.833328},  # Bright Hill Crescent
+        {"latitude": 1.30139, "longitude": 103.797501},  # Tanglin Halt
+        {"latitude": 1.44444, "longitude": 103.776672},  # Woodlands
+        {"latitude": 1.35722, "longitude": 103.836388},  # Thomson Park
+        {"latitude": 1.31139, "longitude": 103.797783},  # Chinese Gardens
+        {"latitude": 1.35222, "longitude": 103.898064},  # Kampong Siren
+        {"latitude": 1.36278, "longitude": 103.908333},  # Punggol Estate
+    ]
+
+    chunk_size = 50  # Define an appropriate chunk size based on your memory limitation
+
+    for i in range(0, len(timestamps), chunk_size):
+
+        client = pymongo.MongoClient(mongo_uri)
+
+        db = client['TraffoozeDBS']
+        collection = db['test_predictions']
+
+        data_to_insert = {'data': i}
+
+        collection.insert_one(data_to_insert)
+
+        client.close()
+
+        timestamp_chunk = timestamps[i:i + chunk_size]
+        combined_data_chunk = process_data_chunk(timestamp_chunk, metadata_df, locations, weather_apikey)
+        save_to_mongo(combined_data_chunk, mongo_uri)
+
+    return "Processing started."
+
 scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
-scheduler.add_job(traffic_flow_predictions, 'interval', minutes=9)
+#scheduler.add_job(traffic_flow_predictions, 'interval', minutes=9)
 scheduler.start()
 
 if __name__ == '__main__':
