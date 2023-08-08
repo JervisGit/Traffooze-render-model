@@ -37,7 +37,7 @@ def hello_world():
 
 @app.route('/keep_alive', methods=['GET'])
 def keep_alive():
-    return 200
+    return "OK", 200
 
 @app.route('/predict', methods=['POST'])
 def predict():
@@ -420,6 +420,37 @@ def get_trafficjam():
 
     return jsonify(traffic_jams)
 
+@app.route('/clean_trafficjam', methods=['GET'])
+def clean_trafficjam():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_trafficjam']
+
+    max_documents = 100
+
+    current_count = collection.count_documents({})
+
+    if current_count > max_documents:
+        # Calculate the number of documents to remove
+        documents_to_remove = current_count - max_documents
+        
+        # Get the oldest documents
+        oldest_documents = collection.find().sort("_id", 1).limit(documents_to_remove)
+        
+        # Create a list of ObjectIds for the documents to remove
+        documents_to_remove_ids = [doc["_id"] for doc in oldest_documents]
+        
+        # Remove the oldest documents
+        try:
+            result = collection.delete_many({"_id": {"$in": documents_to_remove_ids}})
+            return f"Deleted {result.deleted_count} documents."
+        except Exception as bwe:
+            return f"Error deleting documents: {bwe.details}"
+    else:
+        return "No action needed. Document count is within the limit."
+
 @app.route('/save_roadclosure', methods=['GET'])
 def save_roadclosure():
 
@@ -515,6 +546,37 @@ def get_roadclosure():
 
     return jsonify(road_closures)
 
+@app.route('/clean_roadclosure', methods=['GET'])
+def clean_roadclosure():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_roadclosure']
+
+    max_documents = 100
+
+    current_count = collection.count_documents({})
+
+    if current_count > max_documents:
+        # Calculate the number of documents to remove
+        documents_to_remove = current_count - max_documents
+        
+        # Get the oldest documents
+        oldest_documents = collection.find().sort("_id", 1).limit(documents_to_remove)
+        
+        # Create a list of ObjectIds for the documents to remove
+        documents_to_remove_ids = [doc["_id"] for doc in oldest_documents]
+        
+        # Remove the oldest documents
+        try:
+            result = collection.delete_many({"_id": {"$in": documents_to_remove_ids}})
+            return f"Deleted {result.deleted_count} documents."
+        except Exception as bwe:
+            return f"Error deleting documents: {bwe.details}"
+    else:
+        return "No action needed. Document count is within the limit."
+
 @app.route('/save_roadaccident', methods=['GET'])
 def save_roadaccident():
 
@@ -609,6 +671,37 @@ def get_roadaccident():
     client.close()
 
     return jsonify(road_accidents)
+
+@app.route('/clean_roadaccident', methods=['GET'])
+def clean_roadaccident():
+
+    client = pymongo.MongoClient(mongo_uri)
+
+    db = client['TraffoozeDBS']
+    collection = db['jvs_sample_roadaccident']
+
+    max_documents = 100
+
+    current_count = collection.count_documents({})
+
+    if current_count > max_documents:
+        # Calculate the number of documents to remove
+        documents_to_remove = current_count - max_documents
+        
+        # Get the oldest documents
+        oldest_documents = collection.find().sort("_id", 1).limit(documents_to_remove)
+        
+        # Create a list of ObjectIds for the documents to remove
+        documents_to_remove_ids = [doc["_id"] for doc in oldest_documents]
+        
+        # Remove the oldest documents
+        try:
+            result = collection.delete_many({"_id": {"$in": documents_to_remove_ids}})
+            return f"Deleted {result.deleted_count} documents."
+        except Exception as bwe:
+            return f"Error deleting documents: {bwe.details}"
+    else:
+        return "No action needed. Document count is within the limit."
 
 @celery.task
 def try_celery():
@@ -843,6 +936,9 @@ scheduler = BackgroundScheduler(daemon=True)
 scheduler.add_job(save_trafficjam, 'interval', minutes=5)
 scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
+scheduler.add_job(clean_trafficjam, 'interval', minutes=15)
+scheduler.add_job(clean_roadclosure, 'interval', minutes=15)
+scheduler.add_job(clean_roadaccident, 'interval', minutes=15)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
 #scheduler.add_job(traffic_flow_predictions, 'interval', minutes=9)
 #scheduler.add_job(trigger_processing, 'interval', minutes=3)
