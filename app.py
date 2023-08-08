@@ -35,6 +35,10 @@ rf = joblib.load(r'rf_regressor.sav')
 def hello_world():
     return "Hello Beautiful World"
 
+@app.route('/keep_alive', methods=['GET'])
+def keep_alive():
+    return 200
+
 @app.route('/predict', methods=['POST'])
 def predict():
 
@@ -841,7 +845,7 @@ scheduler.add_job(save_roadclosure, 'interval', minutes=5)
 scheduler.add_job(save_roadaccident, 'interval', minutes=5)
 #scheduler.add_job(try_celery, 'interval', minutes=1)
 #scheduler.add_job(traffic_flow_predictions, 'interval', minutes=9)
-scheduler.add_job(trigger_processing, 'interval', minutes=3)
+#scheduler.add_job(trigger_processing, 'interval', minutes=3)
 scheduler.start()
 
 if __name__ == '__main__':
