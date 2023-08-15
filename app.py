@@ -82,6 +82,27 @@ def verify():
         return "df has values"
     else:
         return 404
+    
+@app.route('/metadata', methods=['GET'])
+def get_metadata():
+
+    mongo_url = mongo_uri
+    client = pymongo.MongoClient(mongo_url)
+    db = client['TraffoozeDBS']
+    collection = db['roads_metadata']
+
+    projection = {"_id": 0, "length":0, "shape":0, "coord_list": 0, "start_lat":0, "start_lng":0}
+
+    # Retrieve the traffic data for yesterday
+    roads_metadata = list(collection.find(projection=projection))
+
+    # Close the MongoDB client
+    client.close()
+    
+    if roads_metadata:
+        return jsonify(roads_metadata)
+    else:
+        return 404
 
 
 @app.route('/predict/layer', methods=['GET'])
@@ -146,6 +167,23 @@ def process():
     results = merged_df.to_dict("records")
 
     return jsonify(results)
+
+@app.route('/get_traffic_flow', methods=['POST'])
+def get_traffic_flow_predictions():
+
+    param = request.get_json()
+
+    road_id = param["road_id"]
+    timestamp = param["timestamp"]
+
+    query = """
+    SELECT * 
+    FROM your_table_name
+    WHERE ROAD_ID = '{}' 
+    AND TIMESTAMP = '{}'
+    """.format(road_id, timestamp)
+
+    return query
 
 @celery.task
 def traffic_flow_predictions():
@@ -289,37 +327,6 @@ def traffic_flow_predictions():
     client.close()
     
     return jsonify(results)
-
-@app.route('/weather', methods=['GET'])
-def weather():
-
-    weather_data_dict = {}
-
-    locations = [
-        {"latitude": 1.35806, "longitude": 103.940277},  # Tampines estate
-        {"latitude": 1.36667, "longitude": 103.883331},  # Somapah Serangoon
-        {"latitude": 1.36667, "longitude": 103.800003},  # Republic of Singapore
-        {"latitude": 1.28967, "longitude": 103.850067},  # Singapore
-        {"latitude": 1.41, "longitude": 103.874168},  # Seletar
-        {"latitude": 1.37833, "longitude": 103.931938},  # Kampong Pasir Ris
-        {"latitude": 1.42611, "longitude": 103.824173},  # Chye Kay
-        {"latitude": 1.35, "longitude": 103.833328},  # Bright Hill Crescent
-        {"latitude": 1.30139, "longitude": 103.797501},  # Tanglin Halt
-        {"latitude": 1.44444, "longitude": 103.776672},  # Woodlands
-        {"latitude": 1.35722, "longitude": 103.836388},  # Thomson Park
-        {"latitude": 1.31139, "longitude": 103.797783},  # Chinese Gardens
-        {"latitude": 1.35222, "longitude": 103.898064},  # Kampong Siren
-        {"latitude": 1.36278, "longitude": 103.908333},  # Punggol Estate
-    ]
-    
-    for location in locations:
-        latitude, longitude = location["latitude"], location["longitude"]
-        api_url = f"https://api.openweathermap.org/data/2.5/forecast?lat={latitude}&lon={longitude}&appid={weather_apikey}"
-        response = requests.get(api_url)
-        weather_list = response.json()["list"]
-        weather_data_dict[f"{latitude},{longitude}"] = weather_list
-
-    return jsonify(weather_data_dict)
 
 @app.route('/save_trafficjam', methods=['GET'])
 def save_trafficjam():
